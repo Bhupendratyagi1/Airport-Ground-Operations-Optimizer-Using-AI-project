@@ -1,36 +1,396 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Airport Ground Operations Optimizer API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: flights
+  - name: resources
+  - name: alerts
+  - name: analytics
+  - name: simulator
+  - name: control
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+  /flights:
+    get:
+      operationId: listFlights
+      tags: [flights]
+      summary: List active flights with live status and AI predictions
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: object
+                properties:
+                  airport: { type: string }
+                  serverTime: { type: string }
+                  flights:
+                    type: array
+                    items: { $ref: "#/components/schemas/Flight" }
+                required: [airport, serverTime, flights]
+  /flights/{flightId}:
+    get:
+      operationId: getFlight
+      tags: [flights]
+      parameters:
+        - in: path
+          name: flightId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FlightDetail" }
+  /resources:
+    get:
+      operationId: listResources
+      tags: [resources]
+      summary: Resource utilization snapshot + history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  groups:
+                    type: array
+                    items: { $ref: "#/components/schemas/ResourceGroup" }
+                  history:
+                    type: array
+                    items: { $ref: "#/components/schemas/UtilizationPoint" }
+                required: [groups, history]
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: Active and predicted bottleneck alerts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items: { $ref: "#/components/schemas/Alert" }
+                required: [alerts]
+  /analytics/summary:
+    get:
+      operationId: analyticsSummary
+      tags: [analytics]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnalyticsSummary" }
+  /simulator/predict:
+    post:
+      operationId: simulatePrediction
+      tags: [simulator]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SimulatorRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SimulatorResponse" }
+  /control/optimize:
+    post:
+      operationId: runOptimizer
+      tags: [control]
+      summary: Run greedy resource reassignment
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OptimizerResult" }
+  /control/reset:
+    post:
+      operationId: resetSimulation
+      tags: [control]
+      summary: Clear DB and regenerate 6h of simulated ops
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                required: [ok]
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
+        status: { type: string }
+      required: [status]
+    Flight:
+      type: object
+      properties:
+        id: { type: string }
+        flightNumber: { type: string }
+        airline: { type: string }
+        airlineCode: { type: string }
+        origin: { type: string }
+        destination: { type: string }
+        flightType:
+          type: string
+          enum: [Domestic, International, Cargo]
+        gate: { type: string }
+        stand:
+          type: string
+          enum: [nose-in, remote, tow-in]
         status:
           type: string
+          enum: [Scheduled, Taxi-In, At-Gate, Boarding, Pushback, Departed, Delayed]
+        scheduledArrival: { type: string }
+        actualArrival: { type: string, nullable: true }
+        scheduledDeparture: { type: string }
+        nextMilestone: { type: string }
+        nextMilestoneAt: { type: string }
+        predictedTurnaroundMin: { type: number }
+        baselineTurnaroundMin: { type: number }
+        predictedDelayMin: { type: number }
+        delayRisk:
+          type: string
+          enum: [low, medium, high]
+        bottleneckResource:
+          type: string
+          nullable: true
+        bottleneckReason:
+          type: string
+          nullable: true
+        crewAssigned: { type: integer }
+        baggageVolume: { type: integer }
+        congestionLevel: { type: integer }
+        weather:
+          type: string
+          enum: [clear, rain, fog, storm]
       required:
+        - id
+        - flightNumber
+        - airline
+        - airlineCode
+        - origin
+        - destination
+        - flightType
+        - gate
+        - stand
         - status
-
+        - scheduledArrival
+        - scheduledDeparture
+        - nextMilestone
+        - nextMilestoneAt
+        - predictedTurnaroundMin
+        - baselineTurnaroundMin
+        - predictedDelayMin
+        - delayRisk
+        - crewAssigned
+        - baggageVolume
+        - congestionLevel
+        - weather
+    FlightDetail:
+      allOf:
+        - $ref: "#/components/schemas/Flight"
+        - type: object
+          properties:
+            timeline:
+              type: array
+              items:
+                type: object
+                properties:
+                  ts: { type: string }
+                  event: { type: string }
+                  description: { type: string }
+                required: [ts, event, description]
+            featureContributions:
+              type: array
+              items:
+                type: object
+                properties:
+                  feature: { type: string }
+                  impactMin: { type: number }
+                required: [feature, impactMin]
+          required: [timeline, featureContributions]
+    ResourceUnit:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        status:
+          type: string
+          enum: [idle, busy, maintenance]
+        assignment: { type: string, nullable: true }
+        utilisationPercent: { type: number }
+      required: [id, label, status, utilisationPercent]
+    ResourceGroup:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [gate, tug, stairs, belt, crew, bridge]
+        label: { type: string }
+        totalUnits: { type: integer }
+        busyUnits: { type: integer }
+        utilisationPercent: { type: number }
+        units:
+          type: array
+          items: { $ref: "#/components/schemas/ResourceUnit" }
+      required: [type, label, totalUnits, busyUnits, utilisationPercent, units]
+    UtilizationPoint:
+      type: object
+      properties:
+        ts: { type: string }
+        gate: { type: number }
+        tug: { type: number }
+        belt: { type: number }
+        crew: { type: number }
+        bridge: { type: number }
+      required: [ts, gate, tug, belt, crew, bridge]
+    Alert:
+      type: object
+      properties:
+        id: { type: string }
+        severity:
+          type: string
+          enum: [high, medium, low]
+        resource: { type: string }
+        flightId: { type: string, nullable: true }
+        flightNumber: { type: string, nullable: true }
+        message: { type: string }
+        suggestedAction: { type: string }
+        etaMinutes: { type: number }
+        createdAt: { type: string }
+      required: [id, severity, resource, message, suggestedAction, etaMinutes, createdAt]
+    AnalyticsSummary:
+      type: object
+      properties:
+        onTimePerformance: { type: number }
+        avgTurnaroundMin: { type: number }
+        resourceEfficiency: { type: number }
+        delaysAvoided: { type: integer }
+        totalFlightsToday: { type: integer }
+        bottlenecksResolved: { type: integer }
+        turnaroundTrend:
+          type: array
+          items:
+            type: object
+            properties:
+              hour: { type: string }
+              actual: { type: number }
+              predicted: { type: number }
+            required: [hour, actual, predicted]
+        bottleneckHeatmap:
+          type: array
+          items:
+            type: object
+            properties:
+              hour: { type: integer }
+              resource: { type: string }
+              count: { type: integer }
+            required: [hour, resource, count]
+        airlinePerformance:
+          type: array
+          items:
+            type: object
+            properties:
+              airline: { type: string }
+              onTime: { type: number }
+              flights: { type: integer }
+            required: [airline, onTime, flights]
+      required:
+        - onTimePerformance
+        - avgTurnaroundMin
+        - resourceEfficiency
+        - delaysAvoided
+        - totalFlightsToday
+        - bottlenecksResolved
+        - turnaroundTrend
+        - bottleneckHeatmap
+        - airlinePerformance
+    SimulatorRequest:
+      type: object
+      properties:
+        flightId: { type: string }
+        crewAssigned: { type: integer }
+        gate: { type: string }
+        weather:
+          type: string
+          enum: [clear, rain, fog, storm]
+        baggageVolume: { type: integer }
+        congestionLevel: { type: integer }
+      required: [flightId, crewAssigned, gate, weather, baggageVolume, congestionLevel]
+    SimulatorResponse:
+      type: object
+      properties:
+        flightId: { type: string }
+        baselinePredictionMin: { type: number }
+        newPredictionMin: { type: number }
+        deltaMin: { type: number }
+        newDelayRisk:
+          type: string
+          enum: [low, medium, high]
+        newBottleneck: { type: string, nullable: true }
+        contributions:
+          type: array
+          items:
+            type: object
+            properties:
+              feature: { type: string }
+              impactMin: { type: number }
+            required: [feature, impactMin]
+      required:
+        - flightId
+        - baselinePredictionMin
+        - newPredictionMin
+        - deltaMin
+        - newDelayRisk
+        - contributions
+    OptimizerResult:
+      type: object
+      properties:
+        reassignments:
+          type: array
+          items:
+            type: object
+            properties:
+              flightId: { type: string }
+              flightNumber: { type: string }
+              fromGate: { type: string }
+              toGate: { type: string }
+              reason: { type: string }
+              expectedSavingMin: { type: number }
+            required: [flightId, flightNumber, fromGate, toGate, reason, expectedSavingMin]
+        totalSavingMin: { type: number }
+      required: [reassignments, totalSavingMin]

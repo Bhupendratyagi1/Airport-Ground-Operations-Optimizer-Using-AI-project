@@ -1,0 +1,193 @@
+🚀 ANTIGRAVITY PROMPT – AIRPORT GROUND OPERATIONS OPTIMIZER (Full Production Build)
+
+You are a senior full‑stack AI engineer. Build the complete system described below. All code must be self‑contained, runnable, and production‑grade. The frontend must exactly match the interactive, real‑time, multi‑section design of the “Where Is My Train” mobile/web app – including live status cards, countdown timers, colour‑coded resource blocks, and proactive alerts.
+
+---
+
+📦 Project: Airport Ground Operations Optimizer Using AI
+
+🔹 Problem Summary
+Airports suffer from poor ground resource coordination, unpredictable delays, and inefficient scheduling. This system uses predictive AI + real‑time optimisation to solve that.
+
+---
+
+🧠 Machine Learning Component (model.pkl)
+
+Training script: src/train_model.py
+- Generate synthetic dataset with 50,000+ samples using realistic distributions.
+- Features (must be stored as feature_columns.json):
+  - hour (0‑23)
+  - day_of_week (0‑6)
+  - flight_type (Domestic/International/Cargo – one‑hot encoded)
+  - num_ground_crew (3‑12)
+  - gate_distance (50‑800 metres)
+  - weather_impact (0 = clear, 1 = rain, 2 = fog, 3 = storm)
+  - congestion_level (0‑100)
+  - scheduled_arrival_delay (minutes, -15 to +60)
+  - baggage_volume (0‑500 bags)
+  - stand_type (nose‑in, remote, tow‑in)
+  - previous_flight_delay (minutes)
+- Target variable: actual_turnaround_time (minutes, 25‑120).
+- Model: XGBoost Regressor (or RandomForest with hyperparameter tuning).
+- Output files saved in models/:
+  - model.pkl
+  - feature_columns.json
+  - scaler.pkl
+  - label_encoders.pkl (for categoricals)
+- Evaluation: Print RMSE, MAE, R². Plot feature importance.
+
+Inference module: src/predictor.py
+- Load model.pkl, scaler, encoders.
+- Function predict_turnaround(flight_data_dict) → returns predicted minutes + bottleneck probability.
+- Function predict_bottleneck_resource(flight_id) → returns which resource (crew/baggage/gate/tug) is likely to cause delay.
+
+---
+
+🏗️ Backend & Real‑time Data (FastAPI + WebSockets)
+
+backend/main.py
+- REST endpoints:
+  - GET /api/flights/current → list of all active flights with live status.
+  - GET /api/resources → utilisation of gates, tugs, boarding bridges, cleaning crews, baggage belts.
+  - POST /api/optimize → runs optimisation algorithm (see below) and returns new schedule.
+  - GET /api/predict/{flight_id} → return AI prediction.
+- WebSocket endpoint: /ws/live – broadcasts every 3 seconds:
+  - Updated flight positions (taxi, at gate, boarding, pushback).
+  - New predictions.
+  - Bottleneck alerts.
+- Background task: mock_data_stream() updates flight states, randomly introduces delays, and logs events to SQLite.
+
+Database: airport_ops.db (SQLite with SQLAlchemy)
+Tables:
+- flights (id, flight_number, airline, gate, scheduled_arrival, actual_arrival, status, predicted_turnaround, actual_turnaround, bottleneck_flag)
+- resources (id, type, current_assignment, utilisation_percent, status)
+- events (timestamp, flight_id, event_type, description)
+
+---
+
+🧠 Optimisation Algorithm (src/optimizer.py)
+- Objective: Minimise total turnaround delay across all active flights.
+- Constraints: gate availability, crew shift limits, equipment capacity.
+- Method: Greedy heuristic with look‑ahead (re‑assign resources every 30 seconds based on AI predictions).
+- Must expose function reassign_resources(current_flights, predictions) that returns new assignments and logs changes.
+
+---
+
+🎨 Frontend – Streamlit (exactly like “Where Is My Train” app)
+
+No default Streamlit styling – use custom CSS to replicate the train‑tracking app feel:
+- Dark background (#0E1117), neon accents (#00B4D8).
+- Top bar with airport name, live clock, last update timestamp.
+- Main layout: 3 columns (left sidebar + two main panels).
+
+Sections (pages) – must be accessible via sidebar:
+
+1. 🛫 Live Operations Board (main landing)
+- Interactive Gantt chart (Plotly) showing each gate with flight timeline, colour‑coded by predicted delay risk.
+- Flight cards (like train cards in Where Is My Train):
+  - Flight number, airline, destination.
+  - Current status (On Time / Delayed / Boarding / Pushback) with pulsing dot.
+  - Countdown timer to next milestone (e.g., “Pushback in 8 min”).
+  - Delay predictor banner: “AI predicts 12 min delay – cause: baggage belt overload”.
+  - Button: “View details” → modal with crew/gate/equipment breakdown.
+- Map‑style view (simplified airport diagram) showing gate occupancy with hover details.
+
+2. 📊 Resource Tracker
+- Horizontal utilisation bars for each resource type (gates, tugs, stairs, belts, crew teams).
+- Colour coding: Green (<70%), Yellow (70‑90%), Red (>90%).
+- Live counter showing number of idle vs busy units.
+- Historical trend line chart (utilisation over last hour).
+
+3. ⚠️ Predictive Alerts
+- Scrollable list of active and predicted bottlenecks.
+- Each alert has: resource name, severity (High/Medium), time to occurrence, suggested action (e.g., “Move UA123 to Gate C7”).
+- Push notification simulation (toast message) when a new alert appears.
+
+4. 📈 Analytics Dashboard
+- KPI cards: On‑time performance (%), Avg turnaround time, Resource efficiency, Total delays avoided.
+- Line charts of turnaround time trends (actual vs predicted).
+- Bottleneck recurrence heatmap (hour vs resource type).
+- Download report button (CSV export).
+
+5. 🧪 Scheduler Simulator (“What If” tool)
+- Dropdown to select a flight.
+- Sliders to change: crew count, gate, weather condition.
+- Button: “Run AI simulation” → instantly shows new predicted turnaround time and bottleneck risk.
+- Compare side‑by‑side with current schedule.
+
+---
+
+🔄 Real‑time Behaviour (mimicking “Where Is My Train” live updates)
+
+- Auto‑refresh every 3 seconds (WebSocket pushes).
+- Flight cards animate when status changes (e.g., background flash).
+- Countdown timers decrement visually.
+- When a bottleneck is predicted, the corresponding resource card glows red and a sound‑like alert (visual only) appears.
+
+---
+
+🧪 Demo / Simulation Mode
+
+A script demo.py that:
+- Clears database.
+- Generates 6 hours of simulated flight operations.
+- Runs the optimiser in a loop, showing in the UI how reassignments happen.
+- Allows user to pause/step through events.
+
+---
+
+📁 Exact File List (must all be generated)
+
+airport_optimizer/
+├── requirements.txt          (streamlit, fastapi, uvicorn, xgboost, pandas, numpy, sqlalchemy, plotly, websockets, joblib, scikit-learn)
+├── run.sh / run.bat          (installs dependencies, trains model, launches backend+frontend)
+├── src/
+│   ├── train_model.py
+│   ├── predictor.py
+│   ├── optimizer.py
+│   ├── data_generator.py     (synthetic flight & resource data)
+│   ├── database.py           (SQLAlchemy models, DB helper)
+│   └── config.py             (paths, constants)
+├── backend/
+│   ├── main.py               (FastAPI app with WebSocket)
+│   └── websocket_manager.py
+├── frontend/
+│   ├── app.py                (Streamlit main entry)
+│   ├── pages/
+│   │   ├── 1_Live_Board.py
+│   │   ├── 2_Resource_Tracker.py
+│   │   ├── 3_Alerts.py
+│   │   ├── 4_Analytics.py
+│   │   └── 5_Simulator.py
+│   ├── assets/
+│   │   └── custom.css
+│   └── utils/
+│       ├── api_client.py     (calls backend endpoints)
+│       └── websocket_client.py
+├── models/
+│   ├── model.pkl
+│   ├── feature_columns.json
+│   ├── scaler.pkl
+│   └── label_encoders.pkl
+├── data/
+│   └── synthetic_flights.csv (generated if missing)
+└── README.md                 (setup, architecture, screenshots description)
+
+---
+
+✅ Acceptance Criteria (Antigravity must ensure)
+
+1. No missing file – every file listed above is generated with full, working code.
+2. Training script creates a valid model.pkl with all dependencies.
+3. UI exactly mimics “Where Is My Train” – flight cards, countdowns, colour alerts, live WebSocket updates.
+4. Optimiser actually reassigns resources – visible in UI (e.g., gate changes appear on Gantt).
+5. Full end‑to‑end run – run.sh starts backend (port 8000) and frontend (port 8501) simultaneously, user can see live data.
+6. No AI‑template look – custom CSS, animations, professional aviation colour scheme.
+
+---
+
+🔁 Final Instruction
+
+Generate every file with complete, production‑ready code. Do not skip any component. Do not write “TODO” or placeholders. The system must be run‑without‑modification. The frontend must be indistinguishable from a real‑time operations centre built for a major airport.
+
+Now generate the full project.

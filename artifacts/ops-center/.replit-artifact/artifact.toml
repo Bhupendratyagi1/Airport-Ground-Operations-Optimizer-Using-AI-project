@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Airport Ground Ops Optimizer"
+version = "1.0.0"
+id = "artifacts/ops-center"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21069
+
+[services.development]
+run = "pnpm --filter @workspace/ops-center run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ops-center", "run", "build" ]
+publicDir = "artifacts/ops-center/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21069"
+BASE_PATH = "/"
