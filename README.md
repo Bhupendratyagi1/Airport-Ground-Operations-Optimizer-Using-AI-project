@@ -60,3 +60,10 @@ We developed an intelligent system that:
 
 ## 📌 Status
 🚧 Under Development
+# Airport Ground Operations Optimizer
+
+- Implemented core optimization logic
+- Designed backend API flow
+- Improved performance of scheduling system
+
+Contribution by: rishiom781-art
