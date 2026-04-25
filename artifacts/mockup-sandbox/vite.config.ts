@@ -70,3 +70,6 @@ export default defineConfig({
     allowedHosts: true,
   },
 });
+
+
+//Last edited by:rishiom781-art
