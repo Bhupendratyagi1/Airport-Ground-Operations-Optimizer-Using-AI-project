@@ -47,6 +47,7 @@ We developed an intelligent system that:
 ## 👥 Team
 - Rishi Bhadauriya (Development, AI, System Design)
 - Bhupendra Tyagi (Collaboration, Setup)
+- Divyansh Veer Singh
 
 ---
 
