@@ -28,5 +28,17 @@ args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 PORT = "8080"
 NODE_ENV = "production"
 
+
+
+
+
 [services.production.health.startup]
 path = "/api/healthz"
+
+
+
+#Contributor:rishiom781-art
+
+
+
+
